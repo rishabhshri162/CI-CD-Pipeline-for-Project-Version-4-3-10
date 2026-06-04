@@ -1,0 +1,83 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_DIR = "ORSProject-10-UI"
+        IMAGE_NAME = "ors-frontend"
+        CONTAINER_NAME = "ors-frontend"
+        APP_PORT = "4200"
+    }
+
+    stages {
+
+       stage('Checkout Code') {
+    steps {
+        git branch: 'main',
+            url: 'https://github.com/rishabhshri162/Project-10-Jenkins-Frontend.git',
+            changelog: false,
+            poll: false
+    }
+}
+        stage('Install Dependencies') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'npm install --legacy-peer-deps'
+                }
+            }
+        }
+
+        stage('Build Angular App') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'npx ng build --configuration=production'
+                }
+            }
+        }
+
+        stage('Verify Build Output') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'dir dist'
+                }
+            }
+        }
+
+        stage('Docker Build Image') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'docker build -t %IMAGE_NAME%:latest .'
+                }
+            }
+        }
+
+        stage('Stop Old Container') {
+            steps {
+                bat '''
+                docker stop %CONTAINER_NAME% || exit 0
+                docker rm %CONTAINER_NAME% || exit 0
+                '''
+            }
+        }
+
+        stage('Run New Container') {
+            steps {
+                bat '''
+                docker run -d ^
+                  --name %CONTAINER_NAME% ^
+                  -p %APP_PORT%:80 ^
+                  --restart unless-stopped ^
+                  %IMAGE_NAME%:latest
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Application Successfully Deployed!"
+        }
+        failure {
+            echo "❌ Deployment Failed! Check logs."
+        }
+    }
+}

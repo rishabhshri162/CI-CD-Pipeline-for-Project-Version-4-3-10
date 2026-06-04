@@ -1,0 +1,70 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_DIR = "ORSProject-10"
+        MVN_CMD = '"C:\\Program Files\\apache-maven-3.9.14\\bin\\mvn.cmd"'
+    }
+
+    stages {
+
+  stage('Checkout Backend Code') {
+    steps {
+        git(
+            branch: 'main',
+            url: 'https://github.com/rishabhshri162/Project-10-Jenkins-Backend.git',
+            changelog: false,
+            poll: false
+        )
+    }
+}
+        stage('Build Backend (Maven)') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat '%MVN_CMD% clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Verify JAR File') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'dir target'
+                }
+            }
+        }
+
+        stage('Stop Old Containers') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'docker-compose down || exit 0'
+                }
+            }
+        }
+
+        stage('Build & Run Containers') {
+            steps {
+                dir("${APP_DIR}") {
+                    bat 'docker-compose up -d --build'
+                }
+            }
+        }
+
+        stage('Check Running Containers') {
+            steps {
+                bat 'docker ps'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Backend Deployment Successful!"
+            echo "🌐 Backend URL: http://localhost:8080"
+            echo "🛢️ MySQL: localhost:3307"
+        }
+        failure {
+            echo "❌ Deployment Failed!"
+        }
+    }
+}
